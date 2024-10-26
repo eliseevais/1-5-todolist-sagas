@@ -1,0 +1,36 @@
+<script>
+
+  const api = {
+    getUsers() {
+      const promise = new Promise(res => {
+        setTimeout(() => {
+          res('users from server')
+        }, 2000)
+      })
+      return promise
+    }
+  }
+
+  function* giveMeMoney() {
+    try {
+      const users = yield call(api.getUsers)
+      yield put({type: '', users})
+    } catch (error) {
+      yield put({type: 'error', error})
+    }
+  }
+
+  let generator = giveMeMoney();
+  console.log('generator', generator);
+
+  let result = generator.next();
+  console.log(result);
+
+  if (result.value.constructor.name === 'Promise') {
+    result.value.then((data) => {
+      generator.next(data)
+    })
+  }
+
+
+</script>
