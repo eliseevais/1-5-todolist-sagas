@@ -9,16 +9,17 @@ import {
   removeTodolistAC,
   setTodolistsAC
 } from "./todolists-reducer";
+import {handleServerAppErrorSaga, handleServerNetworkErrorSaga} from "../../utils/error-utils";
 
 // sagasActions
-export const fetchTodolistsSagaAC = () => ({type: "TODOLISTS/FETCH-TODOLISTS"})
-export const removeTodolistSagaAC = (todolistId: string) => ({type: "TODOLISTS/REMOVE-TODOLIST", todolistId})
-export const addTodolistSagaAC = (title: string) => ({type: "TODOLISTS/ADD-TODOLIST", title})
+export const fetchTodolistsSagaAC = () => ({type: "TODOLISTS/FETCH-TODOLISTS"} as const)
+export const removeTodolistSagaAC = (todolistId: string) => ({type: "TODOLISTS/REMOVE-TODOLIST", todolistId} as const)
+export const addTodolistSagaAC = (title: string) => ({type: "TODOLISTS/ADD-TODOLIST", title} as const)
 export const changeTodolistTitleSagaAC = (id: string, title: string) => ({
   type: "TODOLISTS/CHANGE-TODOLIST-TITLE",
   id,
   title
-})
+} as const)
 
 // sagas
 export function* fetchTodolistsWorkerSaga() {
@@ -29,9 +30,9 @@ export function* fetchTodolistsWorkerSaga() {
     yield put(setTodolistsAC(res.data));
     yield put(setAppStatusAC('succeeded'));
   } catch (error) {
-    // handleServerNetworkError(error, dispatch);
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
@@ -44,8 +45,9 @@ export function* removeTodolistWorkerSaga(action: ReturnType<typeof removeTodoli
     yield put(removeTodolistAC(action.todolistId));
     yield put(setAppStatusAC('succeeded'));
   } catch (error) {
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
@@ -54,11 +56,16 @@ export function* addTodolistWorkerSaga(action: ReturnType<typeof addTodolistSaga
 
   const res: ResponseGenerator = yield call(todolistsAPI.createTodolist, action.title);
   try {
-    yield put(addTodolistAC(res.data.data.item));
-    yield put(setAppStatusAC('succeeded'));
+    if (res.data.resultCode === 0) {
+      yield put(addTodolistAC(res.data.data.item));
+      yield put(setAppStatusAC('succeeded'));
+    } else {
+      yield handleServerAppErrorSaga(res.data);
+    }
   } catch (error) {
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
@@ -67,8 +74,9 @@ export function* changeTodolistTitleWorkerSaga(action: ReturnType<typeof changeT
   try {
     yield put(changeTodolistTitleAC(action.id, action.title))
   } catch (error) {
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 

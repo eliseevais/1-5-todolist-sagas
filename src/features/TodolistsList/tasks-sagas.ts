@@ -4,30 +4,36 @@ import {AxiosResponse} from "axios";
 import {GetTasksResponse, ResponseType, todolistsAPI, UpdateTaskModelType} from "../../api/todolists-api";
 import {addTaskAC, removeTaskAC, setTasksAC, UpdateDomainTaskModelType, updateTaskAC} from "./tasks-reducer";
 import {ResponseGenerator, store} from "../../app/store";
+import {handleServerAppErrorSaga, handleServerNetworkErrorSaga} from "../../utils/error-utils";
 
 // sagasActions
-export const fetchTasks = (todolistId: string) => ({type: 'TASKS/FETCH-TASKS', todolistId})
+export const fetchTasks = (todolistId: string) => ({type: 'TASKS/FETCH-TASKS', todolistId} as const)
 export const removeTaskSagaAC = (taskId: string, todolistId: string) => ({
   type: 'TASKS/REMOVE-TASK',
   taskId,
   todolistId
-})
-export const addTaskSagaAC = (title: string, todolistId: string) => ({type: 'TASKS/ADD-TASKS', title, todolistId})
+} as const)
+export const addTaskSagaAC = (title: string, todolistId: string) => ({
+  type: 'TASKS/ADD-TASKS',
+  title,
+  todolistId
+} as const)
 export const updateTaskSagaAC = (taskId: string, domainModel: UpdateDomainTaskModelType, todolistId: string) => (
-  {type: 'TASKS/UPDATE-TASK', taskId, domainModel, todolistId})
+  {type: 'TASKS/UPDATE-TASK', taskId, domainModel, todolistId} as const)
 
 // sagas
 export function* fetchTasksWorkerSaga(action: ReturnType<typeof fetchTasks>) {
   yield put(setAppStatusAC('loading'));
 
-  const res: AxiosResponse<GetTasksResponse> = yield call(todolistsAPI.getTasks, action.todolistId);
+  const data: GetTasksResponse = yield call(todolistsAPI.getTasks, action.todolistId);
   try {
-    const tasks = res.data.items;
+    const tasks = data.items;
     yield put(setTasksAC(tasks, action.todolistId));
     yield put(setAppStatusAC('succeeded'))
   } catch (error) {
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
@@ -36,8 +42,9 @@ export function* removeTaskWorkerSaga(action: ReturnType<typeof removeTaskSagaAC
   try {
     yield put(removeTaskAC(action.taskId, action.todolistId))
   } catch (error) {
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
@@ -51,14 +58,12 @@ export function* addTaskWorkerSaga(action: ReturnType<typeof addTaskSagaAC>) {
       yield put(addTaskAC(task))
       yield put(setAppStatusAC('succeeded'))
     } else {
-      // handleServerAppError(res.data, dispatch);
-      console.log('some error');
-      yield put(setAppStatusAC('failed'));
+      yield handleServerAppErrorSaga(res.data);
     }
   } catch (error) {
-    // handleServerNetworkError(error, dispatch)
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
@@ -85,19 +90,18 @@ export function* updateTaskWorkerSaga(action: ReturnType<typeof updateTaskSagaAC
     if (res.data.resultCode === 0) {
       yield put(updateTaskAC(action.taskId, action.domainModel, action.todolistId))
     } else {
-      // handleServerAppError(res.data, dispatch);
-      console.log('some error')
+      yield handleServerAppErrorSaga(res.data);
     }
   } catch (error) {
-    // handleServerNetworkError(error, dispatch);
-    console.log('some error from catch');
-    yield put(setAppStatusAC('failed'));
+    if (error instanceof Error) {
+      yield handleServerNetworkErrorSaga(error);
+    }
   }
 }
 
 export function* tasksWatcherSaga() {
-yield takeEvery("TASKS/FETCH-TASKS", fetchTasksWorkerSaga)
-yield takeEvery("TASKS/REMOVE-TASK", removeTaskWorkerSaga)
-yield takeEvery("TASKS/ADD-TASKS", addTaskWorkerSaga)
-yield takeEvery("TASKS/UPDATE-TASK", updateTaskWorkerSaga)
+  yield takeEvery("TASKS/FETCH-TASKS", fetchTasksWorkerSaga)
+  yield takeEvery("TASKS/REMOVE-TASK", removeTaskWorkerSaga)
+  yield takeEvery("TASKS/ADD-TASKS", addTaskWorkerSaga)
+  yield takeEvery("TASKS/UPDATE-TASK", updateTaskWorkerSaga)
 }

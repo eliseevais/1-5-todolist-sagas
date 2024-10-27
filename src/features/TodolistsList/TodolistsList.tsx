@@ -44,8 +44,8 @@ export const TodolistsList: React.FC<PropsType> = ({demo = false}) => {
   }, [])
 
   const addTask = useCallback(function (title: string, todolistId: string) {
-    const thunk = addTaskSagaAC(title, todolistId)
-    dispatch(thunk)
+    const action = addTaskSagaAC(title, todolistId)
+    dispatch(action)
   }, [])
 
   const changeStatus = useCallback(function (id: string, status: TaskStatuses, todolistId: string) {
